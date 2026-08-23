@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - {{ user.username }} • BingeList{% endblock %}
+
+{% block content %}
+<style>
+    .social-list-container {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .social-user-card {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 15px;
+        margin-bottom: 10px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        transition: 0.3s;
+    }
+
+    .social-user-card:hover {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: #00f3ff;
+    }
+
+    .user-info {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        text-decoration: none;
+        color: inherit;
+    }
+
+    .user-avatar-small {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #333;
+    }
+
+    .username-title {
+        font-family: 'Bebas Neue';
+        font-size: 1.2rem;
+        letter-spacing: 0.5px;
+    }
+</style>
+
+<div class="social-list-container fade-in">
+    <div class="text-center mb-30">
+        <h2 style="font-family: 'Bebas Neue'; letter-spacing: 2px;">{{ title }}</h2>
+        <p style="color: var(--text-muted);">@{{ user.username }}'s {{ title.lower() }}</p>
+    </div>
+
+    <div class="social-users">
+        {% for u in users %}
+        <div class="social-user-card">
+            <a href="{{ url_for('profile', username=u.username) }}" class="user-info">
+                {% if u.avatar %}
+                <img src="{{ url_for('static', filename=u.avatar) }}" class="user-avatar-small"
+                    onerror="this.src='https://via.placeholder.com/100';">
+                {% else %}
+                <div class="user-avatar-small"
+                    style="background: #333; display: flex; align-items: center; justify-content: center; font-weight: bold;">
+                    {{ u.username[0] | upper }}
+                </div>
+                {% endif %}
+                <div>
+                    <div class="username-title">{{ u.username }}</div>
+                    <div style="font-size: 0.8rem; color: #888;">{{ u.followers.count() }} followers</div>
+                </div>
+            </a>
+
+            {% if current_user.is_authenticated and current_user.id != u.id %}
+            {% if current_user.is_following(u) %}
+            <a href="{{ url_for('unfollow', username=u.username) }}" class="btn btn-outline"
+                style="font-size: 0.8rem; padding: 5px 15px;">Unfollow</a>
+            {% else %}
+            <a href="{{ url_for('follow', username=u.username) }}" class="btn btn-primary"
+                style="font-size: 0.8rem; padding: 5px 15px;">Follow</a>
+            {% endif %}
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="text-center" style="padding: 40px; color: #888;">
+            <p>No users found.</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="text-center mt-30">
+        <a href="{{ url_for('profile', username=user.username) }}" class="btn btn-neon">Back to Profile</a>
+    </div>
+</div>
+{% endblock %}

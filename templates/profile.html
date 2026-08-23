@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+
+{% block title %}{{ user.username }} (@{{ user.username }}) • BingeList{% endblock %}
+
+{% block content %}
+<div class="profile-container fade-in">
+    <!-- Profile Header -->
+    <div class="profile-header glass-card">
+        <div class="profile-avatar">
+            <!-- Avatar Logic -->
+            <div class="avatar-circle">
+                {% if user.avatar %}
+                <img src="{{ url_for('static', filename=user.avatar) }}" alt="{{ user.username }}"
+                    style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+                {% else %}
+                <span>{{ user.username[0] | upper }}</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="profile-info">
+            <div class="profile-top">
+                <h2 class="username">{{ user.username }}</h2>
+                {% if current_user.is_authenticated and current_user.id != user.id %}
+                <div class="profile-actions">
+                    <a href="{{ url_for('chat', username=user.username) }}" class="btn btn-primary">Message</a>
+                    {% if current_user.is_following(user) %}
+                    <a href="{{ url_for('unfollow', username=user.username) }}" class="btn btn-outline"
+                        style="border: 1px solid white; color: white;">Unfollow</a>
+                    {% else %}
+                    <a href="{{ url_for('follow', username=user.username) }}" class="btn btn-primary">Follow</a>
+                    {% endif %}
+                    <a href="{{ url_for('compare_taste', username=user.username) }}" class="btn btn-neon">Compare
+                        Taste</a>
+                </div>
+                {% elif current_user.is_authenticated and current_user.id == user.id %}
+                <div class="profile-actions">
+                    <a href="{{ url_for('edit_profile') }}" class="btn btn-neon">Edit Profile</a>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="profile-stats">
+                <div class="stat-item">
+                    <span class="stat-count">{{ lists_count }}</span>
+                    <span class="stat-label">Lists</span>
+                </div>
+                <a href="{{ url_for('followers_list', username=user.username) }}" class="stat-item"
+                    style="text-decoration: none; color: inherit;">
+                    <span class="stat-count">{{ followers_count }}</span>
+                    <span class="stat-label">Followers</span>
+                </a>
+                <a href="{{ url_for('following_list', username=user.username) }}" class="stat-item"
+                    style="text-decoration: none; color: inherit;">
+                    <span class="stat-count">{{ following_count }}</span>
+                    <span class="stat-label">Following</span>
+                </a>
+            </div>
+
+            <div class="profile-bio">
+                <p><strong>{{ user.username }}</strong> has entered the cinema.</p>
+                <!-- Bio could be added to User model later -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Content Tabs (Visual only for now) -->
+    <div class="profile-tabs">
+        <div class="tab active" style="justify-content: center; width: 100%; border-bottom: 2px solid white;">
+            <svg aria-label="" class="_ab6-" color="rgb(245, 245, 245)" fill="rgb(245, 245, 245)" height="12" role="img"
+                viewBox="0 0 24 24" width="12">
+                <rect fill="none" height="18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
+                    stroke-width="2" width="18" x="3" y="3"></rect>
+                <line fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    x1="9.015" x2="9.015" y1="3" y2="21"></line>
+                <line fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    x1="14.985" x2="14.985" y1="3" y2="21"></line>
+                <line fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    x1="21" x2="3" y1="9.015" y2="9.015"></line>
+                <line fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    x1="21" x2="3" y1="14.985" y2="14.985"></line>
+            </svg>
+            <span style="margin-left: 5px;">LISTS</span>
+        </div>
+    </div>
+
+    <!-- Profile Grid -->
+    <div class="profile-grid">
+        {% for list in lists %}
+        <div class="grid-item">
+            <a href="{{ url_for('view_list', list_id=list.id) }}" class="grid-link">
+                {% if list.cover_url %}
+                <img src="{{ list.cover_url }}" alt="{{ list.name }}">
+                {% elif list.movies|length == 1 %}
+                <!-- Single Movie Cover -->
+                {% if list.movies[0].poster %}
+                <img src="https://image.tmdb.org/t/p/w500{{ list.movies[0].poster }}" alt="{{ list.name }}"
+                    onerror="this.onerror=null;this.src='https://via.placeholder.com/500x750?text=No+Image';">
+                {% else %}
+                <img src="https://via.placeholder.com/500x750?text=No+Image" alt="{{ list.name }}">
+                {% endif %}
+                {% elif list.movies|length > 0 %}
+                <!-- Collage of up to 4 movies -->
+                <div class="grid-collage"
+                    style="display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; width: 100%; height: 100%;">
+                    {% for movie in list.movies[:4] %}
+                    <div style="position: relative; overflow: hidden;">
+                        {% if movie.poster %}
+                        <img src="https://image.tmdb.org/t/p/w200{{ movie.poster }}"
+                            style="width: 100%; height: 100%; object-fit: cover;"
+                            onerror="this.onerror=null;this.src='https://via.placeholder.com/200x300?text=';">
+                        {% else %}
+                        <div
+                            style="width: 100%; height: 100%; background: #222; display: flex; align-items: center; justify-content: center;">
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                    <!-- Fill empty spots if less than 4 but more than 1 -->
+                    {% if list.movies|length < 4 %} {% for i in range(4 - list.movies|length) %} <div
+                        style="background: #1a1a1a;">
+                </div>
+                {% endfor %}
+                {% endif %}
+        </div>
+        {% else %}
+        <!-- Empty List Placeholder -->
+        <div class="grid-placeholder">
+            <span>{{ list.name }}</span>
+        </div>
+        {% endif %}
+        <div class="grid-overlay">
+            <div class="overlay-stats">
+                <i class="fas fa-film"></i> {{ list.movies|length }}
+            </div>
+        </div>
+        </a>
+    </div>
+    {% else %}
+    <div class="no-content">
+        <p>No lists created yet.</p>
+    </div>
+    {% endfor %}
+
+    <!-- Create List Card (Owner Only) -->
+    {% if current_user.is_authenticated and current_user.id == user.id %}
+    <div class="grid-item" onclick="document.getElementById('createListModal').style.display='block'"
+        style="cursor: pointer; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.05); border: 2px dashed rgba(255, 255, 255, 0.2); aspect-ratio: 2/3;">
+        <div style="text-align: center; color: rgba(255, 255, 255, 0.5);">
+            <span style="font-size: 3rem; display: block; line-height: 1;">+</span>
+            <span style="font-weight: bold;">Create List</span>
+        </div>
+    </div>
+    {% endif %}
+</div>
+<!-- Sign Out Button (Bottom of Profile) -->
+{% if current_user.is_authenticated and current_user.id == user.id %}
+<div class="profile-settings">
+    <a href="{{ url_for('logout') }}" class="btn-logout-profile">Sign Out</a>
+</div>
+{% endif %}
+
+<!-- Create List Modal -->
+<div id="createListModal" class="glass-card"
+    style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000; width: 90%; max-width: 500px; box-shadow: 0 0 50px rgba(0,0,0,0.8);">
+    <h3 style="margin-top: 0;">Create New List</h3>
+    <form action="{{ url_for('create_list') }}" method="POST" enctype="multipart/form-data">
+        <input type="text" name="name" placeholder="List Name (e.g., 'Horror Classics')" required
+            style="width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 5px; border: none;">
+        <textarea name="description" placeholder="Description..." rows="3"
+            style="width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 5px; border: none;"></textarea>
+
+        <!-- Cover Image Options -->
+        <div style="margin-bottom: 15px;">
+            <label style="display: block; margin-bottom: 5px; font-size: 0.9rem; color: var(--text-muted);">Cover
+                Image:</label>
+            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                <button type="button" id="btnUrl" onclick="showInput('url')" class="btn btn-neon"
+                    style="flex: 1; padding: 5px; font-size: 0.8rem; border-color: var(--primary-gold); color: white;">Image
+                    URL</button>
+                <button type="button" id="btnUpload" onclick="showInput('upload')" class="btn btn-neon"
+                    style="flex: 1; padding: 5px; font-size: 0.8rem;">Upload File</button>
+            </div>
+
+            <input type="url" id="inputUrl" name="cover_url" placeholder="Paste Image URL (https://...)"
+                style="width: 100%; padding: 10px; border-radius: 5px; border: none;">
+
+            <input type="file" id="inputUpload" name="cover_file" accept="image/*"
+                style="display: none; width: 100%; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 5px;">
+        </div>
+
+        <script>
+            function showInput(type) {
+                if (type === 'url') {
+                    document.getElementById('inputUrl').style.display = 'block';
+                    document.getElementById('inputUpload').style.display = 'none';
+                    document.getElementById('inputUpload').value = ''; // Clear file
+                    document.getElementById('btnUrl').style.borderColor = 'var(--primary-gold)';
+                    document.getElementById('btnUrl').style.color = 'white';
+                    document.getElementById('btnUpload').style.borderColor = 'var(--text-muted)';
+                    document.getElementById('btnUpload').style.color = 'var(--text-muted)';
+                } else {
+                    document.getElementById('inputUrl').style.display = 'none';
+                    document.getElementById('inputUrl').value = ''; // Clear URL
+                    document.getElementById('inputUpload').style.display = 'block';
+                    document.getElementById('btnUpload').style.borderColor = 'var(--primary-gold)';
+                    document.getElementById('btnUpload').style.color = 'white';
+                    document.getElementById('btnUrl').style.borderColor = 'var(--text-muted)';
+                    document.getElementById('btnUrl').style.color = 'var(--text-muted)';
+                }
+            }
+        </script>
+
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button type="submit" class="btn btn-primary" style="flex: 1;">Create</button>
+            <button type="button" onclick="document.getElementById('createListModal').style.display='none'"
+                class="btn btn-neon" style="flex: 1;">Cancel</button>
+        </div>
+    </form>
+</div>
+
+</div>
+{% endblock %}

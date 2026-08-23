@@ -1,0 +1,373 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    .search-tabs {
+        display: flex;
+        justify-content: center;
+        gap: 20px;
+        margin-bottom: 25px;
+        border-bottom: 1px solid #333;
+        padding-bottom: 10px;
+    }
+
+    .search-tab-btn {
+        background: none;
+        border: none;
+        color: #888;
+        font-family: 'Bebas Neue';
+        font-size: 1.2rem;
+        letter-spacing: 1px;
+        cursor: pointer;
+        transition: 0.3s;
+        padding: 5px 15px;
+        position: relative;
+    }
+
+    .search-tab-btn.active {
+        color: #00f3ff;
+    }
+
+    .search-tab-btn.active::after {
+        content: '';
+        position: absolute;
+        bottom: -11px;
+        left: 0;
+        width: 100%;
+        height: 2px;
+        background: #00f3ff;
+        box-shadow: 0 0 10px #00f3ff;
+    }
+
+    .tab-content {
+        display: none;
+    }
+
+    .tab-content.active {
+        display: block;
+    }
+
+    .people-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 20px;
+        margin-top: 20px;
+    }
+
+    .person-card {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 15px;
+        padding: 20px;
+        text-align: center;
+        transition: 0.3s;
+    }
+
+    .person-card:hover {
+        transform: translateY(-5px);
+        border-color: #00f3ff;
+        box-shadow: 0 5px 15px rgba(0, 243, 255, 0.2);
+    }
+
+    .person-avatar {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        object-fit: cover;
+        margin-bottom: 15px;
+        border: 2px solid #333;
+    }
+</style>
+
+<div class="fade-in">
+    <div class="text-center mb-30" style="position: relative;">
+        <h2>Search</h2>
+        <form method="POST" action="{{ url_for('search') }}"
+            style="display: flex; gap: 10px; margin-bottom: 30px; flex-wrap: wrap;">
+            <div style="flex-grow: 1; display: flex; gap: 10px; position: relative;">
+                <input type="text" name="query" id="search-input" value="{{ query if query else '' }}"
+                    placeholder="Search for movies, TV shows, or people..." class="form-control" required
+                    autocomplete="off">
+                <button type="submit" class="btn btn-primary">Search</button>
+
+                <!-- Search Suggestions Dropdown -->
+                <div id="search-suggestions"
+                    style="display: none; position: absolute; top: 100%; left: 0; width: 100%; background: #1a1a1a; border: 1px solid #333; border-radius: 0 0 10px 10px; z-index: 1000; padding: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.5); text-align: left;">
+
+                    <div id="history-section"
+                        style="margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 15px;">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <h4 style="font-size: 0.9rem; color: #888; margin: 0; text-transform: uppercase;">Recent
+                                Searches</h4>
+                            <button type="button" id="clear-history-btn"
+                                style="background: none; border: none; color: #00f3ff; font-size: 0.8rem; cursor: pointer; padding: 0;">Clear
+                                All</button>
+                        </div>
+                        <div id="history-list" style="display: flex; flex-wrap: wrap; gap: 10px;">
+                            <!-- History items injected here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Trending Section (Only visible search bar is empty) -->
+    {% if not query %}
+    <div class="trending-section fade-in" style="margin-top: 20px;">
+        <h3 style="margin-bottom: 20px; font-family: 'Bebas Neue'; letter-spacing: 1px;">Trending Now</h3>
+        <div class="movie-grid">
+            {% for movie in trending_movies %}
+            <div class="movie-card">
+                <a href="{{ url_for('movie_details', tmdb_id=movie.id) }}"
+                    style="display: block; width: 100%; height: 100%;">
+                    {% if movie.poster_path %}
+                    <img src="https://image.tmdb.org/t/p/w500{{ movie.poster_path }}" alt="{{ movie.title }}"
+                        class="movie-poster"
+                        onerror="this.onerror=null;this.src='https://via.placeholder.com/500x750?text=No+Image';">
+                    {% else %}
+                    <img src="https://via.placeholder.com/500x750?text=No+Image" class="movie-poster">
+                    {% endif %}
+                </a>
+                <div class="movie-info">
+                    <div class="movie-title" title="{{ movie.title }}">{{ movie.title }}</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <!-- Result Tabs -->
+    <div class="search-tabs">
+        <button class="search-tab-btn active" data-tab="movies-tab">Movies ({{ movies|length }})</button>
+        <button class="search-tab-btn" data-tab="tv-tab">TV Shows ({{ tv_shows|length }})</button>
+        <button class="search-tab-btn" data-tab="people-tab">People ({{ people|length }})</button>
+    </div>
+
+    <!-- Movies Results -->
+    <div id="movies-tab" class="tab-content active">
+        {% if movies %}
+        <div class="movie-grid">
+            {% for movie in movies %}
+            <div class="movie-card">
+                <a href="{{ url_for('movie_details', tmdb_id=movie.id, media_type='movie') }}"
+                    style="display: block; width: 100%; height: 100%;">
+                    {% if movie.poster_path %}
+                    <img src="https://image.tmdb.org/t/p/w500{{ movie.poster_path }}" alt="{{ movie.title }}"
+                        onerror="this.onerror=null;this.src='https://via.placeholder.com/500x750?text=No+Image';">
+                    {% else %}
+                    <img src="https://via.placeholder.com/500x750?text=No+Image" alt="{{ movie.title }}">
+                    {% endif %}
+                </a>
+
+                <div class="movie-info">
+                    <h3 class="movie-title">{{ movie.title }}</h3>
+                    <p style="font-size: 0.8rem; margin-bottom: 10px;">{{ movie.release_date[:4] if movie.release_date
+                        else 'Unknown' }}</p>
+
+                    <form action="{{ url_for('add') }}" method="POST">
+                        <input type="hidden" name="title" value="{{ movie.title }}">
+                        <input type="hidden" name="poster" value="{{ movie.poster_path }}">
+                        <input type="hidden" name="tmdb_id" value="{{ movie.id }}">
+                        <input type="hidden" name="media_type" value="movie">
+
+                        {% if user_lists %}
+                        <select name="list_id"
+                            style="padding: 8px; font-size: 0.8rem; margin-bottom: 10px; background: rgba(0,0,0,0.5); width: 100%;">
+                            {% for lst in user_lists %}
+                            <option value="{{ lst.id }}">{{ lst.name }}</option>
+                            {% endfor %}
+                        </select>
+                        {% endif %}
+
+                        <button type="submit" class="btn btn-neon"
+                            style="width: 100%; font-size: 0.8rem; padding: 10px;">Add to Collection</button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-center" style="color: #888;">No movies found for "{{ query }}".</p>
+        {% endif %}
+    </div>
+
+    <!-- TV Shows Results -->
+    <div id="tv-tab" class="tab-content">
+        {% if tv_shows %}
+        <div class="movie-grid">
+            {% for tv in tv_shows %}
+            <div class="movie-card">
+                <a href="{{ url_for('movie_details', tmdb_id=tv.id, media_type='tv') }}"
+                    style="display: block; width: 100%; height: 100%;">
+                    {% if tv.poster_path %}
+                    <img src="https://image.tmdb.org/t/p/w500{{ tv.poster_path }}" alt="{{ tv.title }}"
+                        onerror="this.onerror=null;this.src='https://via.placeholder.com/500x750?text=No+Image';">
+                    {% else %}
+                    <img src="https://via.placeholder.com/500x750?text=No+Image" alt="{{ tv.title }}">
+                    {% endif %}
+                </a>
+
+                <div class="movie-info">
+                    <h3 class="movie-title">{{ tv.title }}</h3>
+                    <p style="font-size: 0.8rem; margin-bottom: 10px;">{{ tv.release_date[:4] if tv.release_date else
+                        'Unknown' }}</p>
+
+                    <form action="{{ url_for('add') }}" method="POST">
+                        <input type="hidden" name="title" value="{{ tv.title }}">
+                        <input type="hidden" name="poster" value="{{ tv.poster_path }}">
+                        <input type="hidden" name="tmdb_id" value="{{ tv.id }}">
+                        <input type="hidden" name="media_type" value="tv">
+
+                        {% if user_lists %}
+                        <select name="list_id"
+                            style="padding: 8px; font-size: 0.8rem; margin-bottom: 10px; background: rgba(0,0,0,0.5); width: 100%;">
+                            {% for lst in user_lists %}
+                            <option value="{{ lst.id }}">{{ lst.name }}</option>
+                            {% endfor %}
+                        </select>
+                        {% endif %}
+
+                        <button type="submit" class="btn btn-neon"
+                            style="width: 100%; font-size: 0.8rem; padding: 10px;">Add to Collection</button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-center" style="color: #888;">No TV shows found for "{{ query }}".</p>
+        {% endif %}
+    </div>
+
+    <!-- People Results -->
+    <div id="people-tab" class="tab-content">
+        {% if people %}
+        <div class="people-grid">
+            {% for user in people %}
+            <div class="person-card">
+                <a href="{{ url_for('profile', username=user.username) }}"
+                    style="text-decoration: none; color: inherit;">
+                    {% if user.avatar %}
+                    <img src="{{ url_for('static', filename=user.avatar) }}" class="person-avatar"
+                        onerror="this.src='https://via.placeholder.com/150';">
+                    {% else %}
+                    <img src="https://via.placeholder.com/150" class="person-avatar">
+                    {% endif %}
+                    <h3 style="margin-bottom: 5px;">{{ user.username }}</h3>
+                    <p style="color: #888; font-size: 0.8rem; margin-bottom: 15px;">{{ user.followers.count() }}
+                        followers</p>
+                    <span class="btn btn-primary" style="padding: 5px 15px; font-size: 0.8rem;">View Profile</span>
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-center" style="color: #888;">No users found for "{{ query }}".</p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const searchInput = document.getElementById('search-input');
+            const suggestionsBox = document.getElementById('search-suggestions');
+            const historyList = document.getElementById('history-list');
+            const historySection = document.getElementById('history-section');
+            const clearHistoryBtn = document.getElementById('clear-history-btn');
+
+            // Tab Switching Logic
+            const tabBtns = document.querySelectorAll('.search-tab-btn');
+            const tabContents = document.querySelectorAll('.tab-content');
+
+            tabBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const targetTab = btn.getAttribute('data-tab');
+
+                    // Update buttons
+                    tabBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+
+                    // Update content
+                    tabContents.forEach(content => {
+                        content.classList.remove('active');
+                        if (content.id === targetTab) {
+                            content.classList.add('active');
+                        }
+                    });
+                });
+            });
+
+            // Fetch data on focus
+            searchInput.addEventListener('focus', function () {
+                fetchSuggestions();
+                suggestionsBox.style.display = 'block';
+            });
+
+            // Close on click outside
+            document.addEventListener('click', function (e) {
+                if (!searchInput.contains(e.target) && !suggestionsBox.contains(e.target)) {
+                    suggestionsBox.style.display = 'none';
+                }
+            });
+
+            function fetchSuggestions() {
+                fetch('/api/search-data')
+                    .then(response => response.json())
+                    .then(data => {
+                        renderHistory(data.history);
+                    })
+                    .catch(err => console.error('Error fetching suggestions:', err));
+            }
+
+            function renderHistory(history) {
+                historyList.innerHTML = '';
+                if (history.length === 0) {
+                    historySection.style.display = 'none';
+                    return;
+                }
+                historySection.style.display = 'block';
+
+                history.forEach(item => {
+                    const tag = document.createElement('span');
+                    tag.textContent = item.term;
+                    tag.style.cssText = 'background: #333; padding: 5px 10px; border-radius: 15px; font-size: 0.8rem; cursor: pointer; transition: 0.2s;';
+                    tag.onmouseover = () => { tag.style.background = '#00f3ff'; tag.style.color = '#000'; };
+                    tag.onmouseout = () => { tag.style.background = '#333'; tag.style.color = '#fff'; };
+
+                    tag.onclick = () => {
+                        searchInput.value = item.term;
+                        searchInput.form.submit();
+                    };
+                    historyList.appendChild(tag);
+                });
+            }
+
+            if (clearHistoryBtn) {
+                clearHistoryBtn.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    if (confirm('Are you sure you want to clear your search history?')) {
+                        fetch('/api/clear-search-history', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            }
+                        })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.status === 'success') {
+                                    historyList.innerHTML = '';
+                                    historySection.style.display = 'none';
+                                } else {
+                                    alert('Error clearing history: ' + (data.message || 'Unknown error'));
+                                }
+                            })
+                            .catch(err => console.error('Error clearing history:', err));
+                    }
+                });
+            }
+        });
+    </script>
+</div>
+{% endblock %}

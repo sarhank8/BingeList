@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="fade-in">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 15px;">
+        <div>
+            <h2 style="margin-bottom: 5px;">{{ movie_list.name }}</h2>
+            <p style="color: var(--text-muted); margin-bottom: 5px;">{{ movie_list.description }}</p>
+            {% if movie_list.owner %}
+            <span style="font-size: 0.85rem; color: var(--primary-gold);">
+                Curated by <a href="{{ url_for('profile', username=movie_list.owner.username) }}" style="color: var(--primary-gold); text-decoration: underline; font-weight: bold;">@{{ movie_list.owner.username }}</a>
+            </span>
+            {% endif %}
+        </div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+            <button onclick="document.getElementById('shareModal').style.display='block'" class="btn btn-neon" style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                🔗 Share Collection
+            </button>
+            {% if is_owner %}
+            <a href="{{ url_for('search') }}" class="btn btn-primary">+ Add Movie</a>
+            {% endif %}
+            <a href="{{ url_for('dashboard') }}" class="btn btn-primary">Dashboard</a>
+        </div>
+    </div>
+
+    {% if movie_list.movies %}
+    <div class="movie-grid">
+        {% for movie in movie_list.movies %}
+        <div class="movie-card">
+            <a
+                href="{{ url_for('movie_details', tmdb_id=movie.tmdb_id, media_type=movie.media_type or 'movie') if movie.tmdb_id else '#' }}">
+                {% if movie.poster %}
+                <img src="https://image.tmdb.org/t/p/w500{{ movie.poster }}" alt="{{ movie.title }}"
+                    onerror="this.onerror=null;this.src='https://via.placeholder.com/500x750?text=No+Image'">
+                {% else %}
+                <img src="https://via.placeholder.com/500x750?text=No+Image" alt="{{ movie.title }}">
+                {% endif %}
+
+                {% if movie.media_type == 'tv' %}
+                <div
+                    style="position: absolute; top: 10px; right: 10px; background: var(--accent-red); color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.5);">
+                    TV</div>
+                {% endif %}
+            </a>
+            <div class="movie-info">
+                <h3 class="movie-title">{{ movie.title }}</h3>
+
+                {% set user_reviews = movie.reviews | selectattr("user_id", "equalto", current_user.id) | list if current_user.is_authenticated else [] %}
+                {% if user_reviews %}
+                <div class="movie-rating" style="color: var(--neon-green)">★ {{ user_reviews[0].rating }}/10</div>
+                <p
+                    style="font-size: 0.8rem; margin-top: 5px; color: #ccc; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical;">
+                    {{ user_reviews[0].content }}</p>
+                {% elif is_owner %}
+                <a href="{{ url_for('review', movie_id=movie.id) }}" class="btn btn-primary"
+                    style="padding: 8px 15px; font-size: 0.8rem; margin-top: 10px; width: 100%; box-sizing: border-box;">Log Review</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="glass-card text-center mt-50">
+        <h3>This list is empty.</h3>
+        {% if is_owner %}
+        <a href="{{ url_for('search') }}" class="btn btn-primary">Add Movies</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- Share Collection Modal -->
+<div id="shareModal" class="glass-card"
+    style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000; width: 90%; max-width: 500px; box-shadow: 0 0 50px rgba(0,243,255,0.3); border: 1px solid var(--neon-blue); padding: 25px; border-radius: 12px; background: #0f171e;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
+        <h3 style="margin: 0; color: var(--primary-gold);">🔗 Share Collection</h3>
+        <button onclick="document.getElementById('shareModal').style.display='none'" style="background: none; border: none; color: #fff; font-size: 1.2rem; cursor: pointer;">✖</button>
+    </div>
+
+    <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 15px;">
+        Share <strong>{{ movie_list.name }}</strong> with your friends or post it online:
+    </p>
+
+    <!-- Copy Share Link Box -->
+    <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+        <input type="text" id="shareUrlInput" value="{{ request.url }}" readonly
+            style="flex: 1; padding: 10px; border-radius: 6px; background: #050a0e; border: 1px solid var(--glass-border); color: #fff; font-size: 0.85rem;">
+        <button onclick="copyShareLink()" class="btn btn-neon" style="padding: 10px 15px; font-size: 0.85rem;">
+            📋 Copy
+        </button>
+    </div>
+    <div id="copySuccessMsg" style="display: none; color: var(--neon-green); font-size: 0.85rem; text-align: center; margin-bottom: 15px; font-weight: bold;">
+        ✅ Link copied to clipboard!
+    </div>
+
+    <!-- Quick Social Share Shortcuts -->
+    <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+        <a id="whatsappShareBtn" target="_blank" href="https://api.whatsapp.com/send?text=Check%20out%20my%20movie%20collection%20'{{ movie_list.name|urlencode }}'%20on%20BingeList:%20{{ request.url|urlencode }}" class="btn" style="background: #25D366; color: #fff; text-decoration: none; font-size: 0.8rem; padding: 8px 14px; border-radius: 4px;">
+            WhatsApp
+        </a>
+        <a id="twitterShareBtn" target="_blank" href="https://twitter.com/intent/tweet?text=Check%20out%20this%20movie%20collection%20'{{ movie_list.name|urlencode }}'%20on%20BingeList!&url={{ request.url|urlencode }}" class="btn" style="background: #1DA1F2; color: #fff; text-decoration: none; font-size: 0.8rem; padding: 8px 14px; border-radius: 4px;">
+            Twitter / X
+        </a>
+        <a id="telegramShareBtn" target="_blank" href="https://t.me/share/url?url={{ request.url|urlencode }}&text=Check%20out%20the%20movie%20collection%20'{{ movie_list.name|urlencode }}'" class="btn" style="background: #0088cc; color: #fff; text-decoration: none; font-size: 0.8rem; padding: 8px 14px; border-radius: 4px;">
+            Telegram
+        </a>
+    </div>
+</div>
+
+<script>
+function copyShareLink() {
+    const input = document.getElementById('shareUrlInput');
+    input.select();
+    input.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(input.value).then(() => {
+        const msg = document.getElementById('copySuccessMsg');
+        msg.style.display = 'block';
+        setTimeout(() => {
+            msg.style.display = 'none';
+        }, 3000);
+    });
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('shareModal');
+    if (event.target === modal) {
+        modal.style.display = "none";
+    }
+}
+</script>
+{% endblock %}

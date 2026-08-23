@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block title %}Home - BingeList{% endblock %}
+
+{% block content %}
+<style>
+    .home-header {
+        margin-bottom: 30px;
+    }
+
+    .section-title {
+        font-family: 'Bebas Neue', cursive;
+        font-size: 2rem;
+        margin-top: 40px;
+        margin-bottom: 15px;
+        color: var(--neon-blue);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .movie-carousel {
+        display: flex;
+        overflow-x: auto;
+        gap: 20px;
+        padding-bottom: 20px;
+        scrollbar-width: thin;
+        scrollbar-color: var(--neon-purple) transparent;
+    }
+
+    .movie-carousel::-webkit-scrollbar {
+        height: 8px;
+    }
+
+    .movie-carousel::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+    }
+
+    .movie-carousel::-webkit-scrollbar-thumb {
+        background-color: var(--neon-purple);
+        border-radius: 4px;
+    }
+
+    .movie-card {
+        flex: 0 0 auto;
+        width: 160px;
+        background: rgba(0, 0, 0, 0.5);
+        border-radius: 10px;
+        overflow: hidden;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        position: relative;
+    }
+
+    .movie-card:hover {
+        transform: scale(1.05);
+        box-shadow: 0 0 15px rgba(0, 243, 255, 0.3);
+        z-index: 10;
+    }
+
+    .movie-poster {
+        width: 100%;
+        height: 240px;
+        object-fit: cover;
+    }
+
+    .movie-info {
+        padding: 10px;
+    }
+
+    .movie-title {
+        font-size: 0.9rem;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-bottom: 5px;
+    }
+
+    .empty-state {
+        color: #888;
+        font-style: italic;
+        padding: 20px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+    }
+</style>
+
+<div class="home-header">
+    <h1 style="font-size: 3rem; margin-bottom: 10px;">Welcome back, <span class="neon-text">{{ current_user.username
+            }}</span></h1>
+    <p style="opacity: 0.8;">Discover your next obsession.</p>
+</div>
+
+<!-- 1. Recommendations / Search History Based -->
+<div class="movie-section">
+    <h2 class="section-title">{{ recommendation_title }}</h2>
+    {% if recommended_movies %}
+    <div class="movie-carousel">
+        {% for movie in recommended_movies %}
+        <a href="{{ url_for('movie_details', tmdb_id=movie.id) }}" class="movie-card">
+            {% if movie.poster_path %}
+            <img src="https://image.tmdb.org/t/p/w500{{ movie.poster_path }}" alt="{{ movie.title }}"
+                class="movie-poster"
+                onerror="this.onerror=null;this.src='https://via.placeholder.com/500x750?text=No+Image';">
+            {% else %}
+            <img src="https://via.placeholder.com/500x750?text=No+Image" class="movie-poster">
+            {% endif %}
+            <div class="movie-info">
+                <div class="movie-title" title="{{ movie.title }}">{{ movie.title }}</div>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        Start searching for movies to get personalized recommendations here!
+    </div>
+    {% endif %}
+</div>
+
+<!-- 2. Popular Movies -->
+<div class="movie-section">
+    <h2 class="section-title">Popular This Week</h2>
+    {% if popular_movies %}
+    <div class="movie-carousel">
+        {% for movie in popular_movies %}
+        <a href="{{ url_for('movie_details', tmdb_id=movie.id) }}" class="movie-card">
+            {% if movie.poster_path %}
+            <img src="https://image.tmdb.org/t/p/w500{{ movie.poster_path }}" alt="{{ movie.title }}"
+                class="movie-poster"
+                onerror="this.onerror=null;this.src='https://via.placeholder.com/500x750?text=No+Image';">
+            {% else %}
+            <img src="https://via.placeholder.com/500x750?text=No+Image" class="movie-poster">
+            {% endif %}
+            <div class="movie-info">
+                <div class="movie-title" title="{{ movie.title }}">{{ movie.title }}</div>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        Unable to load popular movies right now. Check your connection.
+    </div>
+    {% endif %}
+</div>
+
+<!-- 3. Dynamic Genre Lists -->
+{% for genre_section in genre_lists %}
+<div class="movie-section">
+    <h2 class="section-title">{{ genre_section.title }}</h2>
+    <div class="movie-carousel">
+        {% for movie in genre_section.movies %}
+        <a href="{{ url_for('movie_details', tmdb_id=movie.id) }}" class="movie-card">
+            {% if movie.poster_path %}
+            <img src="https://image.tmdb.org/t/p/w500{{ movie.poster_path }}" alt="{{ movie.title }}"
+                class="movie-poster"
+                onerror="this.onerror=null;this.src='https://via.placeholder.com/500x750?text=No+Image';">
+            {% else %}
+            <img src="https://via.placeholder.com/500x750?text=No+Image" class="movie-poster">
+            {% endif %}
+            <div class="movie-info">
+                <div class="movie-title" title="{{ movie.title }}">{{ movie.title }}</div>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endfor %}
+
+{% endblock %}
