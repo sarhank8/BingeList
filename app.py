@@ -520,19 +520,28 @@ def home():
                            popular_movies=popular_movies,
                            genre_lists=genre_lists)
 
+
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
     if request.method == 'POST':
-        hashed_pw = generate_password_hash(request.form['password'])
-        new_user = User(username=request.form['username'], password=hashed_pw)
-        db.session.add(new_user)
-        db.session.commit()
-        
-        # Create default list
-        default_list = MovieList(name="Watchlist", description="My main collection", user_id=new_user.id)
-        db.session.add(default_list)
-        db.session.commit()
-        
+        username = request.form['username'].strip()
+        if User.query.filter_by(username=username).first():
+            flash('Username already taken.', 'error')
+            return redirect(url_for('signup'))
+        try:
+            new_user = User(username=username,
+                            password=generate_password_hash(request.form['password']))
+            db.session.add(new_user)
+            db.session.commit()
+            db.session.add(MovieList(name="Watchlist", description="My main collection",
+                                     user_id=new_user.id))
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            print(f"Signup error: {e}")
+            flash('Could not create account. Try again.', 'error')
+            return redirect(url_for('signup'))
+        flash('Account created! Please log in.', 'success')
         return redirect(url_for('login'))
     return render_template('signup.html')
 
@@ -543,6 +552,7 @@ def login():
         if user and check_password_hash(user.password, request.form['password']):
             login_user(user)
             return redirect(url_for('home'))
+        flash('Invalid username or password.', 'error')
     return render_template('login.html')
 
 @app.route('/edit_profile', methods=['GET', 'POST'])
