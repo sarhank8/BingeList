@@ -12,12 +12,8 @@ from models import User, Movie, Review, MovieList, Message, APICache, SearchHist
 from datetime import datetime
 
 app = Flask(__name__)
-
-# Point instance_path to /tmp when running on Vercel's read-only environment
 if os.environ.get('VERCEL'):
     app.instance_path = '/tmp'
-else:
-    app = Flask(__name__)
 app.config.from_object(Config)
 
 # Initialize SocketIO
@@ -25,6 +21,9 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 
 db.init_app(app)
 login_manager.init_app(app)
+
+with app.app_context():
+    db.create_all()
 
 # --- REQUESTS SESSION SETUP ---
 from requests.adapters import HTTPAdapter
