@@ -10,8 +10,13 @@ from extensions import db, login_manager
 from sqlalchemy import or_
 from models import User, Movie, Review, MovieList, Message, APICache, SearchHistory
 from datetime import datetime
+# Tell Flask to use /tmp for instance files in serverless/production
+instance_path = '/tmp' if os.environ.get('VERCEL') else None
 
-app = Flask(__name__)
+if instance_path:
+    app = Flask(__name__, instance_path=instance_path)
+else:
+    app = Flask(__name__)
 app.config.from_object(Config)
 
 # Initialize SocketIO
