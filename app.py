@@ -675,10 +675,14 @@ def search():
     if query:
         # Save Search History
         if current_user.is_authenticated:
-            new_search = SearchHistory(user_id=current_user.id, search_term=query)
-            db.session.add(new_search)
+            term = query.strip()
+            # Remove older copies of the same term, then save it as the newest
+            SearchHistory.query.filter(
+                SearchHistory.user_id == current_user.id,
+                db.func.lower(SearchHistory.search_term) == term.lower()
+            ).delete(synchronize_session=False)
+            db.session.add(SearchHistory(user_id=current_user.id, search_term=term))
             db.session.commit()
-
         api_key = app.config['TMDB_API_KEY']
         q = quote_plus(query)
         movie_url = f"https://api.themoviedb.org/3/search/movie?api_key={api_key}&query={q}"
@@ -1068,19 +1072,27 @@ def friends():
 def search_data():
     if not current_user.is_authenticated:
         return {'history': [], 'trending': []}
-        
-    # 1. Get Search History (Last 5)
+
+    # 1. Get Search History (latest 5 unique terms)
     history = SearchHistory.query.filter_by(user_id=current_user.id)\
         .order_by(SearchHistory.timestamp.desc())\
-        .limit(5).all()
-        
-    history_data = [{'term': h.search_term} for h in history]
-    
+        .limit(30).all()
+
+    seen = set()
+    history_data = []
+    for h in history:
+        key = h.search_term.strip().lower()
+        if key not in seen:
+            seen.add(key)
+            history_data.append({'term': h.search_term})
+        if len(history_data) == 5:
+            break
+
     # 2. Get Trending Movies (from TMDB)
     api_key = app.config['TMDB_API_KEY']
     url = f"https://api.themoviedb.org/3/trending/movie/week?api_key={api_key}"
     trending_data = []
-    
+
     data = fetch_tmdb_data(url)
     if data:
         results = data.get('results', [])[:5]
@@ -1091,10 +1103,8 @@ def search_data():
                 'poster_path': movie.get('poster_path'),
                 'media_type': 'movie'
             })
-            
-    return {'history': history_data, 'trending': trending_data}
 
-@app.route('/api/clear-search-history', methods=['POST'])
+    return {'history': history_data, 'trending': trending_data}@app.route('/api/clear-search-history', methods=['POST'])
 @login_required
 def clear_search_history():
     try:
