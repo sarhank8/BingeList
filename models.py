@@ -15,7 +15,7 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     avatar = db.Column(db.String(500), nullable=True) # Stores filename
-    password = db.Column(db.String(120), nullable=False)
+    password = db.Column(db.String(255), nullable=False)    # User
     movies = db.relationship('Movie', backref='owner', lazy=True)
     reviews = db.relationship('Review', backref='author', lazy=True)
     lists = db.relationship('MovieList', backref='owner', lazy=True)
@@ -87,7 +87,7 @@ class SearchHistory(db.Model):
 
 class APICache(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    url = db.Column(db.String(500), unique=True, nullable=False)
+    url = db.Column(db.Text, unique=True, nullable=False)    # APICache
     response_json = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
