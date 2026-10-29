@@ -9,6 +9,7 @@ from config import Config
 from extensions import db, login_manager
 from sqlalchemy import or_
 from models import User, Movie, Review, MovieList, Message, APICache, SearchHistory
+from urllib.parse import quote_plus
 from datetime import datetime
 
 app = Flask(__name__)
@@ -293,7 +294,8 @@ def get_fallback_data(url):
     # Search query check
     search_match = re.search(r'query=([^&]+)', url)
     if search_match:
-        q = search_match.group(1).lower().replace('+', ' ')
+        from urllib.parse import unquote_plus
+        q = unquote_plus(search_match.group(1)).lower()
         matching = [m for m in FALLBACK_CATALOG if q in m.get('title', '').lower() or q in m.get('name', '').lower() or q in m.get('overview', '').lower()]
         if not matching:
             matching = FALLBACK_CATALOG[:6]
@@ -678,8 +680,9 @@ def search():
             db.session.commit()
 
         api_key = app.config['TMDB_API_KEY']
-        movie_url = f"https://api.themoviedb.org/3/search/movie?api_key={api_key}&query={query}"
-        tv_url = f"https://api.themoviedb.org/3/search/tv?api_key={api_key}&query={query}"
+        q = quote_plus(query)
+        movie_url = f"https://api.themoviedb.org/3/search/movie?api_key={api_key}&query={q}"
+        tv_url = f"https://api.themoviedb.org/3/search/tv?api_key={api_key}&query={q}"
         
         # 1. Check Cache in Main Thread
         urls_map = {movie_url: 'movie', tv_url: 'tv'}
@@ -701,39 +704,10 @@ def search():
         user_results = User.query.filter(User.username.ilike(f'%{query}%')).all()
         people = [u for u in user_results if not current_user.is_authenticated or u.id != current_user.id]
 
-        def fetch_api_task(url):
-            try:
-                data = fetch_tmdb_data(url)
-                return url, data
-            except Exception as e:
-                print(f"Search Fetch Error {url}: {e}")
-            return url, None
-
-        if urls_to_network_fetch:
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-                future_to_url = {executor.submit(fetch_api_task, u): u for u in urls_to_network_fetch}
-                for future in concurrent.futures.as_completed(future_to_url):
-                    url, data = future.result()
-                    if data:
-                        fetched_results[url] = data
-
-        # 4. Update Cache in Main Thread
-        import json
-        new_entries = 0
-        for url, data in fetched_results.items():
-            if url in urls_to_network_fetch:
-                existing = APICache.query.filter_by(url=url).first()
-                if not existing:
-                    db.session.add(APICache(url=url, response_json=json.dumps(data)))
-                    new_entries += 1
-        
-        if new_entries > 0:
-            try:
-                db.session.commit()
-            except Exception as e:
-                db.session.rollback()
-                print(f"Search Cache Commit Error: {e}")
+        for url in urls_to_network_fetch:
+            data = fetch_tmdb_data(url)
+            if data:
+                fetched_results[url] = data
 
         # 5. Assemble Results
         movie_data = fetched_results.get(movie_url)
