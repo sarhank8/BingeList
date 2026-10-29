@@ -5,4 +5,4 @@ requests
 werkzeug
 flask-socketio
 simple-websocket
-psycopg2-binary
+psycopg[binary]
