@@ -543,8 +543,9 @@ def signup():
             print(f"Signup error: {e}")
             flash('Could not create account. Try again.', 'error')
             return redirect(url_for('signup'))
-        flash('Account created! Please log in.', 'success')
-        return redirect(url_for('login'))
+        login_user(new_user)
+        flash('Welcome to BingeList!', 'success')
+        return redirect(url_for('home'))
     return render_template('signup.html')
 
 @app.route('/login', methods=['GET', 'POST'])
