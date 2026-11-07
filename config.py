@@ -1,4 +1,6 @@
 import os
+from dotenv import load_dotenv
+load_dotenv()
 
 def _database_uri():
     default = 'sqlite:////tmp/bingelist.db' if os.environ.get('VERCEL') else 'sqlite:///bingelist.db'
@@ -16,3 +18,5 @@ class Config:
     UPLOAD_FOLDER = 'static/uploads/avatars'
     TMDB_API_KEY = os.environ.get('TMDB_API_KEY')
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-only-change-me'
+    GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID')
+    GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET')
