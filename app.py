@@ -11,8 +11,15 @@ from sqlalchemy import or_
 from models import User, Movie, Review, MovieList, Message, APICache, SearchHistory
 from urllib.parse import quote_plus
 from datetime import datetime
+import secrets
+import re
+from authlib.integrations.flask_client import OAuth
+from sqlalchemy import inspect, text
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 app = Flask(__name__)
+# Trust Vercel's proxy headers so redirect URLs are built with https
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 if os.environ.get('VERCEL'):
     app.instance_path = '/tmp'
 app.config.from_object(Config)
@@ -23,8 +30,31 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 db.init_app(app)
 login_manager.init_app(app)
 
+# --- GOOGLE OAUTH ---
+oauth = OAuth(app)
+oauth.register(
+    name='google',
+    client_id=app.config.get('GOOGLE_CLIENT_ID'),
+    client_secret=app.config.get('GOOGLE_CLIENT_SECRET'),
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={'scope': 'openid email profile'},
+)
+
+def ensure_user_columns():
+    """create_all() never alters existing tables, so add the new columns if missing."""
+    try:
+        existing = {c['name'] for c in inspect(db.engine).get_columns('user')}
+        for col, ddl in (('email', 'VARCHAR(255)'), ('google_id', 'VARCHAR(64)')):
+            if col not in existing:
+                db.session.execute(text(f'ALTER TABLE "user" ADD COLUMN {col} {ddl}'))
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"Column migration error: {e}")
+
 with app.app_context():
     db.create_all()
+    ensure_user_columns()
 
 # --- REQUESTS SESSION SETUP ---
 from requests.adapters import HTTPAdapter
@@ -559,6 +589,62 @@ def login():
             return redirect(url_for('home'))
         flash('Invalid username or password.', 'error')
     return render_template('login.html')
+
+@app.route('/login/google')
+def google_login():
+    if not app.config.get('GOOGLE_CLIENT_ID'):
+        flash('Google sign-in is not configured.', 'error')
+        return redirect(url_for('login'))
+    redirect_uri = url_for('google_callback', _external=True)
+    return oauth.google.authorize_redirect(redirect_uri)
+
+@app.route('/auth/google/callback')
+def google_callback():
+    try:
+        token = oauth.google.authorize_access_token()
+        info = token.get('userinfo') or oauth.google.userinfo()
+    except Exception as e:
+        print(f"Google auth error: {e}")
+        flash('Google sign-in failed. Please try again.', 'error')
+        return redirect(url_for('login'))
+
+    google_id = info.get('sub')
+    email = (info.get('email') or '').lower()
+    if not google_id or not email or not info.get('email_verified', False):
+        flash('Your Google account must have a verified email.', 'error')
+        return redirect(url_for('login'))
+
+    user = User.query.filter_by(google_id=google_id).first()
+    if not user:
+        # Link to an existing account that already uses this email
+        user = User.query.filter_by(email=email).first()
+        if user:
+            user.google_id = google_id
+            db.session.commit()
+    if not user:
+        base = re.sub(r'[^a-zA-Z0-9_]', '', email.split('@')[0])[:30] or 'user'
+        username, n = base, 1
+        while User.query.filter_by(username=username).first():
+            n += 1
+            username = f'{base}{n}'
+        try:
+            user = User(username=username, email=email, google_id=google_id,
+                        # Google users have no password; store an unguessable one
+                        password=generate_password_hash(secrets.token_urlsafe(32)))
+            db.session.add(user)
+            db.session.commit()
+            db.session.add(MovieList(name="Watchlist", description="My main collection",
+                                     user_id=user.id))
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            print(f"Google signup error: {e}")
+            flash('Could not create account. Try again.', 'error')
+            return redirect(url_for('login'))
+        flash('Welcome to BingeList!', 'success')
+
+    login_user(user)
+    return redirect(url_for('home'))
 
 @app.route('/edit_profile', methods=['GET', 'POST'])
 @login_required

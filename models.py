@@ -15,6 +15,8 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     avatar = db.Column(db.String(500), nullable=True) # Stores filename
+    email = db.Column(db.String(255), nullable=True)      # From Google sign-in
+    google_id = db.Column(db.String(64), nullable=True)   # Google account 'sub'
     password = db.Column(db.String(255), nullable=False)    # User
     movies = db.relationship('Movie', backref='owner', lazy=True)
     reviews = db.relationship('Review', backref='author', lazy=True)
